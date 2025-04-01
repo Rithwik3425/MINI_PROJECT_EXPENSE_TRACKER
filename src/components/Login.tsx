@@ -1,74 +1,72 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { DollarSign } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { DollarSign } from "lucide-react";
 
 const Login: React.FC = () => {
   const { state, login, clearError } = useAuth();
   const navigate = useNavigate();
-  
+
   const [formData, setFormData] = useState({
-    email: '',
-    password: ''
+    email: "",
+    password: "",
   });
-  
+
   const [formErrors, setFormErrors] = useState({
-    email: '',
-    password: ''
+    email: "",
+    password: "",
   });
 
   // Redirect if already authenticated
   useEffect(() => {
     if (state.isAuthenticated) {
-      navigate('/');
+      navigate("/");
     }
-    
-    // Clear any auth errors when component mounts
     clearError();
-  }, [state.isAuthenticated, navigate, clearError]);
+  }, [state.isAuthenticated, navigate]); // ✅ Now it's stable
 
   const validateForm = () => {
     let valid = true;
     const errors = {
-      email: '',
-      password: ''
+      email: "",
+      password: "",
     };
-    
+
     // Email validation
     if (!formData.email) {
-      errors.email = 'Email is required';
+      errors.email = "Email is required";
       valid = false;
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = 'Email is invalid';
+      errors.email = "Email is invalid";
       valid = false;
     }
-    
+
     // Password validation
     if (!formData.password) {
-      errors.password = 'Password is required';
+      errors.password = "Password is required";
       valid = false;
     }
-    
+
     setFormErrors(errors);
     return valid;
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     const success = await login(formData.email, formData.password);
     if (success) {
-      navigate('/');
+      navigate("/");
     }
   };
 
@@ -82,8 +80,11 @@ const Login: React.FC = () => {
           Sign in to your account
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Or{' '}
-          <Link to="/register" className="font-medium text-emerald-600 hover:text-emerald-500">
+          Or{" "}
+          <Link
+            to="/register"
+            className="font-medium text-emerald-600 hover:text-emerald-500"
+          >
             create a new account
           </Link>
         </p>
@@ -100,10 +101,13 @@ const Login: React.FC = () => {
               </div>
             </div>
           )}
-          
+
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Email address
               </label>
               <div className="mt-1">
@@ -115,17 +119,22 @@ const Login: React.FC = () => {
                   value={formData.email}
                   onChange={handleChange}
                   className={`appearance-none block w-full px-3 py-2 border ${
-                    formErrors.email ? 'border-red-300' : 'border-gray-300'
+                    formErrors.email ? "border-red-300" : "border-gray-300"
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm`}
                 />
                 {formErrors.email && (
-                  <p className="mt-2 text-sm text-red-600">{formErrors.email}</p>
+                  <p className="mt-2 text-sm text-red-600">
+                    {formErrors.email}
+                  </p>
                 )}
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700"
+              >
                 Password
               </label>
               <div className="mt-1">
@@ -137,11 +146,13 @@ const Login: React.FC = () => {
                   value={formData.password}
                   onChange={handleChange}
                   className={`appearance-none block w-full px-3 py-2 border ${
-                    formErrors.password ? 'border-red-300' : 'border-gray-300'
+                    formErrors.password ? "border-red-300" : "border-gray-300"
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm`}
                 />
                 {formErrors.password && (
-                  <p className="mt-2 text-sm text-red-600">{formErrors.password}</p>
+                  <p className="mt-2 text-sm text-red-600">
+                    {formErrors.password}
+                  </p>
                 )}
               </div>
             </div>
@@ -162,7 +173,9 @@ const Login: React.FC = () => {
                 <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Demo Account</span>
+                <span className="px-2 bg-white text-gray-500">
+                  Demo Account
+                </span>
               </div>
             </div>
 
@@ -171,8 +184,8 @@ const Login: React.FC = () => {
                 <button
                   onClick={() => {
                     setFormData({
-                      email: 'demo@example.com',
-                      password: 'password123'
+                      email: "demo@example.com",
+                      password: "password123",
                     });
                   }}
                   className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"

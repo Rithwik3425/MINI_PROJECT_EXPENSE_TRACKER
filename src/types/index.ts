@@ -22,31 +22,32 @@ export interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
   error: string | null;
+  token: string | null;
 }
 
-export type ExpenseCategory = 
-  | 'food'
-  | 'transportation'
-  | 'housing'
-  | 'utilities'
-  | 'entertainment'
-  | 'healthcare'
-  | 'education'
-  | 'shopping'
-  | 'travel'
-  | 'other';
+export type ExpenseCategory =
+  | "food"
+  | "transportation"
+  | "housing"
+  | "utilities"
+  | "entertainment"
+  | "healthcare"
+  | "education"
+  | "shopping"
+  | "travel"
+  | "other";
 
 export const CATEGORIES: ExpenseCategory[] = [
-  'food',
-  'transportation',
-  'housing',
-  'utilities',
-  'entertainment',
-  'healthcare',
-  'education',
-  'shopping',
-  'travel',
-  'other'
+  "food",
+  "transportation",
+  "housing",
+  "utilities",
+  "entertainment",
+  "healthcare",
+  "education",
+  "shopping",
+  "travel",
+  "other",
 ];
 
 export interface DateRange {

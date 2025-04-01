@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import { Expense, Budget, DateRange } from '../types';
+import React, { createContext, useContext, useEffect, useReducer } from "react";
+import { Budget, DateRange, Expense } from "../types";
+import { useAuth } from "./AuthContext";
 
 interface ExpenseState {
   expenses: Expense[];
@@ -11,173 +11,440 @@ interface ExpenseState {
 }
 
 type ExpenseAction =
-  | { type: 'ADD_EXPENSE'; payload: Expense }
-  | { type: 'DELETE_EXPENSE'; payload: string }
-  | { type: 'UPDATE_EXPENSE'; payload: Expense }
-  | { type: 'SET_EXPENSES'; payload: Expense[] }
-  | { type: 'ADD_BUDGET'; payload: Budget }
-  | { type: 'UPDATE_BUDGET'; payload: Budget }
-  | { type: 'DELETE_BUDGET'; payload: string }
-  | { type: 'SET_BUDGETS'; payload: Budget[] }
-  | { type: 'SET_DATE_RANGE'; payload: DateRange }
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_ERROR'; payload: string | null };
+  | { type: "ADD_EXPENSE"; payload: Expense }
+  | { type: "DELETE_EXPENSE"; payload: string }
+  | { type: "UPDATE_EXPENSE"; payload: Expense }
+  | { type: "SET_EXPENSES"; payload: Expense[] }
+  | { type: "ADD_BUDGET"; payload: Budget }
+  | { type: "UPDATE_BUDGET"; payload: Budget }
+  | { type: "DELETE_BUDGET"; payload: string }
+  | { type: "SET_BUDGETS"; payload: Budget[] }
+  | { type: "SET_DATE_RANGE"; payload: DateRange }
+  | { type: "SET_LOADING"; payload: boolean }
+  | { type: "SET_ERROR"; payload: string | null };
 
 interface ExpenseContextType {
   state: ExpenseState;
-  addExpense: (expense: Omit<Expense, 'id'>) => void;
-  deleteExpense: (id: string) => void;
-  updateExpense: (expense: Expense) => void;
-  addBudget: (budget: Budget) => void;
-  updateBudget: (budget: Budget) => void;
-  deleteBudget: (category: string) => void;
+  addExpense: (expense: Omit<Expense, "id">) => Promise<boolean>;
+  deleteExpense: (id: string) => Promise<boolean>;
+  updateExpense: (expense: Expense) => Promise<boolean>;
+  addBudget: (budget: Omit<Budget, "id">) => Promise<boolean>;
+  updateBudget: (budget: Budget) => Promise<boolean>;
+  deleteBudget: (category: string) => Promise<boolean>;
   setDateRange: (dateRange: DateRange) => void;
+  refreshData: () => Promise<void>;
 }
 
 const initialState: ExpenseState = {
   expenses: [],
   budgets: [],
   dateRange: {
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+      .toISOString()
+      .split("T")[0],
+    endDate: new Date().toISOString().split("T")[0],
   },
   isLoading: false,
-  error: null
+  error: null,
 };
 
 const ExpenseContext = createContext<ExpenseContextType | undefined>(undefined);
 
-const expenseReducer = (state: ExpenseState, action: ExpenseAction): ExpenseState => {
+// Get server URL from environment or use default
+const serverUrl =
+  import.meta.env.REACT_APP_SERVER_URL || "http://localhost:11000";
+
+const expenseReducer = (
+  state: ExpenseState,
+  action: ExpenseAction
+): ExpenseState => {
   switch (action.type) {
-    case 'ADD_EXPENSE':
+    case "ADD_EXPENSE":
       return {
         ...state,
-        expenses: [...state.expenses, action.payload]
+        expenses: [...state.expenses, action.payload],
       };
-    case 'DELETE_EXPENSE':
+    case "DELETE_EXPENSE":
       return {
         ...state,
-        expenses: state.expenses.filter(expense => expense.id !== action.payload)
+        expenses: state.expenses.filter(
+          (expense) => expense.id !== action.payload
+        ),
       };
-    case 'UPDATE_EXPENSE':
+    case "UPDATE_EXPENSE":
       return {
         ...state,
-        expenses: state.expenses.map(expense => 
+        expenses: state.expenses.map((expense) =>
           expense.id === action.payload.id ? action.payload : expense
-        )
+        ),
       };
-    case 'SET_EXPENSES':
+    case "SET_EXPENSES":
       return {
         ...state,
-        expenses: action.payload
+        expenses: action.payload,
       };
-    case 'ADD_BUDGET':
+    case "ADD_BUDGET":
       return {
         ...state,
-        budgets: [...state.budgets, action.payload]
+        budgets: [...state.budgets, action.payload],
       };
-    case 'UPDATE_BUDGET':
+    case "UPDATE_BUDGET":
       return {
         ...state,
-        budgets: state.budgets.map(budget => 
+        budgets: state.budgets.map((budget) =>
           budget.category === action.payload.category ? action.payload : budget
-        )
+        ),
       };
-    case 'DELETE_BUDGET':
+    case "DELETE_BUDGET":
       return {
         ...state,
-        budgets: state.budgets.filter(budget => budget.category !== action.payload)
+        budgets: state.budgets.filter(
+          (budget) => budget.category !== action.payload
+        ),
       };
-    case 'SET_BUDGETS':
+    case "SET_BUDGETS":
       return {
         ...state,
-        budgets: action.payload
+        budgets: action.payload,
       };
-    case 'SET_DATE_RANGE':
+    case "SET_DATE_RANGE":
       return {
         ...state,
-        dateRange: action.payload
+        dateRange: action.payload,
       };
-    case 'SET_LOADING':
+    case "SET_LOADING":
       return {
         ...state,
-        isLoading: action.payload
+        isLoading: action.payload,
       };
-    case 'SET_ERROR':
+    case "SET_ERROR":
       return {
         ...state,
-        error: action.payload
+        error: action.payload,
       };
     default:
       return state;
   }
 };
 
-export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [state, dispatch] = useReducer(expenseReducer, initialState);
+  const { state: authState } = useAuth();
 
-  // Load data from localStorage on initial render
-  useEffect(() => {
-    const loadData = () => {
-      try {
-        const storedExpenses = localStorage.getItem('expenses');
-        const storedBudgets = localStorage.getItem('budgets');
-        
-        if (storedExpenses) {
-          dispatch({ type: 'SET_EXPENSES', payload: JSON.parse(storedExpenses) });
-        }
-        
-        if (storedBudgets) {
-          dispatch({ type: 'SET_BUDGETS', payload: JSON.parse(storedBudgets) });
-        }
-      } catch (error) {
-        console.error('Error loading data from localStorage:', error);
-        dispatch({ type: 'SET_ERROR', payload: 'Failed to load saved data' });
+  // Create headers with authentication token
+  const getHeaders = () => {
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${authState.token}`,
+    };
+  };
+
+  // Fetch expenses and budgets from API
+  const fetchExpenses = async () => {
+    if (!authState.isAuthenticated || !authState.token) return;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+
+      const { startDate, endDate } = state.dateRange;
+      const query = `startDate=${startDate}&endDate=${endDate}`;
+
+      const response = await fetch(`${serverUrl}/api/expense?${query}`, {
+        headers: getHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch expenses");
       }
-    };
-    
-    loadData();
-  }, []);
 
-  // Save data to localStorage whenever expenses or budgets change
+      const data = await response.json();
+
+      // Transform data if needed to match your frontend model
+      const expenses = data.map((expense: any) => ({
+        id: expense._id,
+        description: expense.description,
+        amount: expense.amount,
+        category: expense.category,
+        date: new Date(expense.date).toISOString().split("T")[0],
+      }));
+
+      dispatch({ type: "SET_EXPENSES", payload: expenses });
+    } catch (error) {
+      console.error("Error fetching expenses:", error);
+      dispatch({ type: "SET_ERROR", payload: "Failed to load expenses" });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
+
+  const fetchBudgets = async () => {
+    if (!authState.isAuthenticated || !authState.token) return;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+
+      const response = await fetch(`${serverUrl}/api/budget`, {
+        headers: getHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch budgets");
+      }
+
+      const data = await response.json();
+
+      // Transform data if needed to match your frontend model
+      const budgets = data.map((budget: any) => ({
+        id: budget._id,
+        category: budget.category,
+        amount: budget.amount,
+      }));
+
+      dispatch({ type: "SET_BUDGETS", payload: budgets });
+    } catch (error) {
+      console.error("Error fetching budgets:", error);
+      dispatch({ type: "SET_ERROR", payload: "Failed to load budgets" });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
+
+  // Refresh all data
+  const refreshData = async () => {
+    await Promise.all([fetchExpenses(), fetchBudgets()]);
+  };
+
+  // Load data when component mounts or when auth state changes
   useEffect(() => {
-    localStorage.setItem('expenses', JSON.stringify(state.expenses));
-  }, [state.expenses]);
+    if (authState.isAuthenticated) {
+      refreshData();
+    }
+  }, [authState.isAuthenticated]);
 
+  // Also refresh when date range changes
   useEffect(() => {
-    localStorage.setItem('budgets', JSON.stringify(state.budgets));
-  }, [state.budgets]);
+    if (authState.isAuthenticated) {
+      fetchExpenses();
+    }
+  }, [state.dateRange]);
 
-  const addExpense = (expense: Omit<Expense, 'id'>) => {
-    const newExpense = {
-      ...expense,
-      id: uuidv4()
-    };
-    dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
+  // Add a new expense
+  const addExpense = async (expense: Omit<Expense, "id">): Promise<boolean> => {
+    if (!authState.isAuthenticated) return false;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+
+      const response = await fetch(`${serverUrl}/api/expense`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(expense),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add expense");
+      }
+
+      const savedExpense = await response.json();
+
+      // Transform response to match your frontend model
+      const newExpense = {
+        id: savedExpense._id,
+        description: savedExpense.description,
+        amount: savedExpense.amount,
+        category: savedExpense.category,
+        date: new Date(savedExpense.date).toISOString().split("T")[0],
+      };
+
+      dispatch({ type: "ADD_EXPENSE", payload: newExpense });
+      return true;
+    } catch (error) {
+      console.error("Error adding expense:", error);
+      dispatch({ type: "SET_ERROR", payload: "Failed to add expense" });
+      return false;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
   };
 
-  const deleteExpense = (id: string) => {
-    dispatch({ type: 'DELETE_EXPENSE', payload: id });
+  // Delete an expense
+  const deleteExpense = async (id: string): Promise<boolean> => {
+    if (!authState.isAuthenticated) return false;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+
+      const response = await fetch(`${serverUrl}/api/expense/${id}`, {
+        method: "DELETE",
+        headers: getHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete expense");
+      }
+
+      dispatch({ type: "DELETE_EXPENSE", payload: id });
+      return true;
+    } catch (error) {
+      console.error("Error deleting expense:", error);
+      dispatch({ type: "SET_ERROR", payload: "Failed to delete expense" });
+      return false;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
   };
 
-  const updateExpense = (expense: Expense) => {
-    dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
+  // Update an expense
+  const updateExpense = async (expense: Expense): Promise<boolean> => {
+    if (!authState.isAuthenticated) return false;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+
+      // Extract id and prepare payload without id for the backend
+      const { id, ...expenseData } = expense;
+
+      const response = await fetch(`${serverUrl}/api/expense/${id}`, {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify(expenseData),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update expense");
+      }
+
+      const updatedExpense = await response.json();
+
+      // Transform response to match your frontend model
+      const transformedExpense = {
+        id: updatedExpense._id,
+        description: updatedExpense.description,
+        amount: updatedExpense.amount,
+        category: updatedExpense.category,
+        date: new Date(updatedExpense.date).toISOString().split("T")[0],
+      };
+
+      dispatch({ type: "UPDATE_EXPENSE", payload: transformedExpense });
+      return true;
+    } catch (error) {
+      console.error("Error updating expense:", error);
+      dispatch({ type: "SET_ERROR", payload: "Failed to update expense" });
+      return false;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
   };
 
-  const addBudget = (budget: Budget) => {
-    dispatch({ type: 'ADD_BUDGET', payload: budget });
+  // Add a new budget
+  const addBudget = async (budget: Omit<Budget, "id">): Promise<boolean> => {
+    if (!authState.isAuthenticated) return false;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+
+      const response = await fetch(`${serverUrl}/api/budget`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(budget),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add budget");
+      }
+
+      const savedBudget = await response.json();
+
+      // Transform response to match your frontend model
+      const newBudget = {
+        id: savedBudget._id,
+        category: savedBudget.category,
+        amount: savedBudget.amount,
+      };
+
+      dispatch({ type: "ADD_BUDGET", payload: newBudget });
+      return true;
+    } catch (error) {
+      console.error("Error adding budget:", error);
+      dispatch({ type: "SET_ERROR", payload: "Failed to add budget" });
+      return false;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
   };
 
-  const updateBudget = (budget: Budget) => {
-    dispatch({ type: 'UPDATE_BUDGET', payload: budget });
+  // Update a budget
+  const updateBudget = async (budget: Budget): Promise<boolean> => {
+    if (!authState.isAuthenticated) return false;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+
+      const response = await fetch(
+        `${serverUrl}/api/budget/${budget.category}`,
+        {
+          method: "PUT",
+          headers: getHeaders(),
+          body: JSON.stringify({ amount: budget.amount }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update budget");
+      }
+
+      const updatedBudget = await response.json();
+
+      // Transform response to match your frontend model
+      const transformedBudget = {
+        id: updatedBudget._id,
+        category: updatedBudget.category,
+        amount: updatedBudget.amount,
+      };
+
+      dispatch({ type: "UPDATE_BUDGET", payload: transformedBudget });
+      return true;
+    } catch (error) {
+      console.error("Error updating budget:", error);
+      dispatch({ type: "SET_ERROR", payload: "Failed to update budget" });
+      return false;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
   };
 
-  const deleteBudget = (category: string) => {
-    dispatch({ type: 'DELETE_BUDGET', payload: category });
+  // Delete a budget
+  const deleteBudget = async (category: string): Promise<boolean> => {
+    if (!authState.isAuthenticated) return false;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+
+      const response = await fetch(`${serverUrl}/api/budget/${category}`, {
+        method: "DELETE",
+        headers: getHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete budget");
+      }
+
+      dispatch({ type: "DELETE_BUDGET", payload: category });
+      return true;
+    } catch (error) {
+      console.error("Error deleting budget:", error);
+      dispatch({ type: "SET_ERROR", payload: "Failed to delete budget" });
+      return false;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
   };
 
+  // Set date range
   const setDateRange = (dateRange: DateRange) => {
-    dispatch({ type: 'SET_DATE_RANGE', payload: dateRange });
+    dispatch({ type: "SET_DATE_RANGE", payload: dateRange });
   };
 
   return (
@@ -190,7 +457,8 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
         addBudget,
         updateBudget,
         deleteBudget,
-        setDateRange
+        setDateRange,
+        refreshData,
       }}
     >
       {children}
@@ -201,7 +469,7 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
 export const useExpenses = () => {
   const context = useContext(ExpenseContext);
   if (context === undefined) {
-    throw new Error('useExpenses must be used within an ExpenseProvider');
+    throw new Error("useExpenses must be used within an ExpenseProvider");
   }
   return context;
 };
