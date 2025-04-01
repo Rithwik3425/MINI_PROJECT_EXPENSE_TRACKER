@@ -22,7 +22,11 @@ interface AuthContextType {
   clearError: () => void;
 }
 
-const serverUrl = import.meta.env.REACT_APP_SERVER_URL;
+// const serverUrl =
+//   import.meta.env.REACT_APP_SERVER_URL ||
+//   "https://mini-project-expense-tracker-backend.onrender.com";
+
+const serverUrl = "https://mini-project-expense-tracker-backend.onrender.com";
 
 const initialState: AuthState = {
   isAuthenticated: false,

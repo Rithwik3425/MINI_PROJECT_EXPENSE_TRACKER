@@ -51,7 +51,11 @@ const initialState: ExpenseState = {
 const ExpenseContext = createContext<ExpenseContextType | undefined>(undefined);
 
 // Get server URL from environment or use default
-const serverUrl = import.meta.env.REACT_APP_SERVER_URL;
+// const serverUrl =
+//   import.meta.env.REACT_APP_SERVER_URL ||
+//   "https://mini-project-expense-tracker-backend.onrender.com";
+
+const serverUrl = "https://mini-project-expense-tracker-backend.onrender.com";
 
 const expenseReducer = (
   state: ExpenseState,
