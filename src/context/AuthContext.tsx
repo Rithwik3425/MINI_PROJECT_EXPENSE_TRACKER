@@ -22,8 +22,7 @@ interface AuthContextType {
   clearError: () => void;
 }
 
-const serverUrl =
-  import.meta.env.REACT_APP_SERVER_URL || "http://localhost:11000";
+const serverUrl = import.meta.env.REACT_APP_SERVER_URL;
 
 const initialState: AuthState = {
   isAuthenticated: false,

@@ -51,8 +51,7 @@ const initialState: ExpenseState = {
 const ExpenseContext = createContext<ExpenseContextType | undefined>(undefined);
 
 // Get server URL from environment or use default
-const serverUrl =
-  import.meta.env.REACT_APP_SERVER_URL || "http://localhost:11000";
+const serverUrl = import.meta.env.REACT_APP_SERVER_URL;
 
 const expenseReducer = (
   state: ExpenseState,
